@@ -1,42 +1,54 @@
-﻿using System.Net.Http.Json;
+﻿using System.IO;
 using System.Text.Json;
 
 namespace Xunkong.SnapMetadata;
 
 public class SnapMetadataClient
 {
-
-
-    private readonly HttpClient _httpClient;
-
-
     public SnapMetadataClient(HttpClient httpClient)
     {
-        _httpClient = httpClient;
+        _ = httpClient;
     }
 
+    private static readonly string MetadataFolder = Path.Combine(
+        AppContext.BaseDirectory,
+        "Snap.Metadata");
 
     private static JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+    private static string GetPackageFilePath(string relativePath)
+    {
+        string normalizedPath = relativePath.Replace('/', Path.DirectorySeparatorChar);
+        return Path.Combine(MetadataFolder, normalizedPath);
+    }
+
+    private static async Task<T> ReadLocalJsonAsync<T>(string relativePath)
+    {
+        string filePath = GetPackageFilePath(relativePath);
+        await using FileStream stream = File.OpenRead(filePath);
+        T? value = await JsonSerializer.DeserializeAsync<T>(stream, JsonSerializerOptions);
+        return value ?? throw new JsonException($"Failed to deserialize metadata file: {filePath}");
+    }
 
 
     public async Task<SnapMeta> GetSnapMetaAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/Meta.json";
-        return await _httpClient.GetFromJsonAsync<SnapMeta>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/Meta.json";
+        return await ReadLocalJsonAsync<SnapMeta>(relativePath);
     }
 
 
     public async Task<SnapAvatarInfo> GetAvatarInfoAsync(string id)
     {
-        string url = $"https://api.snapgenshin.com/metadata/Genshin/CHS/{id}.json";
-        return await _httpClient.GetFromJsonAsync<SnapAvatarInfo>(url, JsonSerializerOptions);
+        string relativePath = $"Genshin/CHS/{id}.json";
+        return await ReadLocalJsonAsync<SnapAvatarInfo>(relativePath);
     }
 
 
     public async Task<List<SnapWeaponInfo>> GetWeaponInfosAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/Weapon.json";
-        return await _httpClient.GetFromJsonAsync<List<SnapWeaponInfo>>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/Weapon.json";
+        return await ReadLocalJsonAsync<List<SnapWeaponInfo>>(relativePath);
     }
 
 
@@ -44,48 +56,48 @@ public class SnapMetadataClient
 
     public async Task<List<SnapGachaEventInfo>> GetGachaEventInfosAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/GachaEvent.json";
-        return await _httpClient.GetFromJsonAsync<List<SnapGachaEventInfo>>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/GachaEvent.json";
+        return await ReadLocalJsonAsync<List<SnapGachaEventInfo>>(relativePath);
     }
 
 
 
     public async Task<List<SnapAchievementItem>> GetAchievementItemsAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/Achievement.json";
-        return await _httpClient.GetFromJsonAsync<List<SnapAchievementItem>>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/Achievement.json";
+        return await ReadLocalJsonAsync<List<SnapAchievementItem>>(relativePath);
     }
 
 
     public async Task<List<SnapAchievementGoal>> GetAchievementGoalsAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/AchievementGoal.json";
-        return await _httpClient.GetFromJsonAsync<List<SnapAchievementGoal>>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/AchievementGoal.json";
+        return await ReadLocalJsonAsync<List<SnapAchievementGoal>>(relativePath);
     }
 
 
     public async Task<List<SnapDisplayItem>> GetDisplayItemsAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/DisplayItem.json";
-        return await _httpClient.GetFromJsonAsync<List<SnapDisplayItem>>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/DisplayItem.json";
+        return await ReadLocalJsonAsync<List<SnapDisplayItem>>(relativePath);
     }
 
 
 
     public async Task<List<SnapPromote>> GetPromotesAsync()
     {
-        const string url1 = "https://api.snapgenshin.com/metadata/Genshin/CHS/AvatarPromote.json";
-        var list1 = await _httpClient.GetFromJsonAsync<List<SnapPromote>>(url1, JsonSerializerOptions);
-        const string url2 = "https://api.snapgenshin.com/metadata/Genshin/CHS/WeaponPromote.json";
-        var list2 = await _httpClient.GetFromJsonAsync<List<SnapPromote>>(url2, JsonSerializerOptions);
+        const string relativePath1 = "Genshin/CHS/AvatarPromote.json";
+        var list1 = await ReadLocalJsonAsync<List<SnapPromote>>(relativePath1);
+        const string relativePath2 = "Genshin/CHS/WeaponPromote.json";
+        var list2 = await ReadLocalJsonAsync<List<SnapPromote>>(relativePath2);
         return list1.Concat(list2).ToList();
     }
 
 
     public async Task<List<SnapMaterial>> GetMaterialsAsync()
     {
-        const string url = "https://api.snapgenshin.com/metadata/Genshin/CHS/Material.json";
-        return await _httpClient.GetFromJsonAsync<List<SnapMaterial>>(url, JsonSerializerOptions);
+        const string relativePath = "Genshin/CHS/Material.json";
+        return await ReadLocalJsonAsync<List<SnapMaterial>>(relativePath);
     }
 
 
