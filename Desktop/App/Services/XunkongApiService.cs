@@ -210,14 +210,8 @@ internal class XunkongApiService
         string? remoteHash = await _snapMetadataClient.GetLatestMetadataHashAsync();
         if (remoteHash == hash)
         {
-            if (force)
-            {
-                await GetSnapMetadataAsync(force);
-            }
-            else
-            {
-                return;
-            }
+            if (force) await GetSnapMetadataAsync(force);
+            return;
         }
         NotificationProvider.Information("检查到数据更新，正在下载...");
         try
