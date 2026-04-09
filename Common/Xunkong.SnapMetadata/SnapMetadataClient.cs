@@ -1,13 +1,22 @@
 ﻿using System.IO;
+using System.IO.Compression;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace Xunkong.SnapMetadata;
 
 public class SnapMetadataClient
 {
+    // 没有release只能直接下了
+    private const string MetadataZipUrl = "https://api.github.com/repos/wangdage12/Snap.Metadata/zipball/main";
+    // 需要一个好心人提供更新检查api(
+    private const string MetadataCommitHashUrl = "https://api.github.com/repos/wangdage12/Snap.Metadata/git/ref/heads/main";
+
+    private readonly HttpClient _httpClient;
+
     public SnapMetadataClient(HttpClient httpClient)
     {
-        _ = httpClient;
+        _httpClient = httpClient;
     }
 
     private static readonly string MetadataFolder = Path.Combine(
@@ -15,6 +24,34 @@ public class SnapMetadataClient
         "Snap.Metadata");
 
     private static JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+    private async Task EnsureMetadataDownloadedAsync()
+    {
+        Directory.CreateDirectory(MetadataFolder);
+        string tempZipPath = Path.Combine(Path.GetTempPath(), $"Snap.Metadata.{Guid.NewGuid():N}.zip");
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, MetadataZipUrl);
+            request.Headers.Add("User-Agent", "Xunkong-Welkin/1.5.1");
+            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+
+            await using (var responseStream = await response.Content.ReadAsStreamAsync())
+            await using (var fileStream = File.Create(tempZipPath))
+            {
+                await responseStream.CopyToAsync(fileStream);
+            }
+
+            ZipFile.ExtractToDirectory(tempZipPath, MetadataFolder, overwriteFiles: true);
+        }
+        finally
+        {
+            if (File.Exists(tempZipPath))
+            {
+                File.Delete(tempZipPath);
+            }
+        }
+    }
 
     private static string GetPackageFilePath(string relativePath)
     {
@@ -30,9 +67,19 @@ public class SnapMetadataClient
         return value ?? throw new JsonException($"Failed to deserialize metadata file: {filePath}");
     }
 
-
-    public async Task<SnapMeta> GetSnapMetaAsync()
+    public async Task<string> GetLatestMetadataHashAsync()
     {
+        var request = new HttpRequestMessage(HttpMethod.Get, MetadataCommitHashUrl);
+        request.Headers.Add("User-Agent", "Xunkong-Welkin/1.5.1");
+        var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var refResponse = await response.Content.ReadFromJsonAsync<RefResponse>(JsonSerializerOptions);
+        return refResponse?.Object?.Sha;
+    }
+
+    public async Task<SnapMeta> GetSnapMetaAsync(bool force = false)
+    {
+        if (!force) await EnsureMetadataDownloadedAsync();
         const string relativePath = "Genshin/CHS/Meta.json";
         return await ReadLocalJsonAsync<SnapMeta>(relativePath);
     }
@@ -103,5 +150,13 @@ public class SnapMetadataClient
 
 }
 
+internal class RefResponse
+{
+    public RefObject Object { get; set; }
+}
 
+internal class RefObject
+{
+    public string Sha { get; set; }
+}
 
