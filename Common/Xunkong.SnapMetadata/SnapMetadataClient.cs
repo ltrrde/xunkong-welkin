@@ -1,5 +1,4 @@
-﻿using System.IO;
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -7,32 +6,47 @@ namespace Xunkong.SnapMetadata;
 
 public class SnapMetadataClient
 {
+    private const string AppDataPathEnvVar = "XUNKONG_APP_DATA_PATH";
     // 没有release只能直接下了
     private const string MetadataZipUrl = "https://api.github.com/repos/wangdage12/Snap.Metadata/zipball/main";
     // 需要一个好心人提供更新检查api(
     private const string MetadataCommitHashUrl = "https://api.github.com/repos/wangdage12/Snap.Metadata/git/ref/heads/main";
 
     private readonly HttpClient _httpClient;
+    private readonly string _metadataFolder;
 
-    public SnapMetadataClient(HttpClient httpClient)
+    public SnapMetadataClient(HttpClient httpClient, string? appDataPath = null)
     {
         _httpClient = httpClient;
+        _metadataFolder = Path.Combine(
+            GetAppDataPath(appDataPath),
+            "Snap.Metadata");
     }
 
-    private static readonly string MetadataFolder = Path.Combine(
-        AppContext.BaseDirectory,
-        "Snap.Metadata");
+    private static string GetAppDataPath(string? appDataPath)
+    {
+        if (!string.IsNullOrWhiteSpace(appDataPath))
+        {
+            return appDataPath;
+        }
+        var fallbackPath = Environment.GetEnvironmentVariable(AppDataPathEnvVar);
+        if (!string.IsNullOrWhiteSpace(fallbackPath))
+        {
+            return fallbackPath;
+        }
+
+        throw new InvalidOperationException($"Both environment variable '{AppDataPathEnvVar}' and provide appDataPath are null or whitespace.");
+    }
 
     private static JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
     private async Task EnsureMetadataDownloadedAsync()
     {
-        Directory.CreateDirectory(MetadataFolder);
+        Directory.CreateDirectory(_metadataFolder);
         string tempZipPath = Path.Combine(Path.GetTempPath(), $"Snap.Metadata.{Guid.NewGuid():N}.zip");
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Get, MetadataZipUrl);
-            request.Headers.Add("User-Agent", "Xunkong-Welkin/1.5.1");
             var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
 
@@ -42,7 +56,7 @@ public class SnapMetadataClient
                 await responseStream.CopyToAsync(fileStream);
             }
 
-            ZipFile.ExtractToDirectory(tempZipPath, MetadataFolder, overwriteFiles: true);
+            ZipFile.ExtractToDirectory(tempZipPath, _metadataFolder, overwriteFiles: true);
         }
         finally
         {
@@ -53,13 +67,13 @@ public class SnapMetadataClient
         }
     }
 
-    private static string GetPackageFilePath(string relativePath)
+    private string GetPackageFilePath(string relativePath)
     {
         string normalizedPath = relativePath.Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(MetadataFolder, normalizedPath);
+        return Path.Combine(_metadataFolder, normalizedPath);
     }
 
-    private static async Task<T> ReadLocalJsonAsync<T>(string relativePath)
+    private async Task<T> ReadLocalJsonAsync<T>(string relativePath)
     {
         string filePath = GetPackageFilePath(relativePath);
         await using FileStream stream = File.OpenRead(filePath);
@@ -70,7 +84,6 @@ public class SnapMetadataClient
     public async Task<string> GetLatestMetadataHashAsync()
     {
         var request = new HttpRequestMessage(HttpMethod.Get, MetadataCommitHashUrl);
-        request.Headers.Add("User-Agent", "Xunkong-Welkin/1.5.1");
         var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
         var refResponse = await response.Content.ReadFromJsonAsync<RefResponse>(JsonSerializerOptions);
