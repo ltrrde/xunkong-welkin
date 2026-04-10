@@ -56,7 +56,7 @@ public class SnapMetadataClient
                 await responseStream.CopyToAsync(fileStream);
             }
 
-            ZipFile.ExtractToDirectory(tempZipPath, _metadataFolder, overwriteFiles: true);
+            ExtractToMetadataFolder(tempZipPath);
         }
         finally
         {
@@ -64,6 +64,54 @@ public class SnapMetadataClient
             {
                 File.Delete(tempZipPath);
             }
+        }
+    }
+
+    private void ExtractToMetadataFolder(string zipPath)
+    {
+        string tempExtractFolder = Path.Combine(Path.GetTempPath(), $"Snap.Metadata.Extract.{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempExtractFolder);
+
+        try
+        {
+            ZipFile.ExtractToDirectory(zipPath, tempExtractFolder, overwriteFiles: true);
+
+            string[] topLevelDirectories = Directory.GetDirectories(tempExtractFolder);
+            string[] topLevelFiles = Directory.GetFiles(tempExtractFolder);
+            string sourceFolder = topLevelDirectories.Length == 1 && topLevelFiles.Length == 0
+                ? topLevelDirectories[0]
+                : tempExtractFolder;
+
+            CopyDirectory(sourceFolder, _metadataFolder);
+        }
+        finally
+        {
+            if (Directory.Exists(tempExtractFolder))
+            {
+                Directory.Delete(tempExtractFolder, recursive: true);
+            }
+        }
+    }
+
+    private static void CopyDirectory(string sourceFolder, string destinationFolder)
+    {
+        foreach (string directory in Directory.GetDirectories(sourceFolder, "*", SearchOption.AllDirectories))
+        {
+            string relativePath = Path.GetRelativePath(sourceFolder, directory);
+            Directory.CreateDirectory(Path.Combine(destinationFolder, relativePath));
+        }
+
+        foreach (string file in Directory.GetFiles(sourceFolder, "*", SearchOption.AllDirectories))
+        {
+            string relativePath = Path.GetRelativePath(sourceFolder, file);
+            string destinationPath = Path.Combine(destinationFolder, relativePath);
+            string? destinationDirectory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrWhiteSpace(destinationDirectory))
+            {
+                Directory.CreateDirectory(destinationDirectory);
+            }
+
+            File.Copy(file, destinationPath, overwrite: true);
         }
     }
 
