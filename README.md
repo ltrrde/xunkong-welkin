@@ -1,4 +1,13 @@
-﻿![烟绯律师](https://file.xunkong.cc/static/repo/xunkong/YanfeiLawyer.webp)
+﻿# 项目说明
+
+> 本项目是[寻空](https://github.com/xunkong/xunkong)的一个分支，修复由于胡桃工具箱停止运营导致的元数据失效。  
+> - **已修改**：元数据来源更换（感谢 [wangdage12](https://github.com/wangdage12/Snap.Metadata/)）  
+> - **进行中**：图鉴图片来源更换为与祈愿记录界面一致  
+
+原项目遵循 MIT 许可证，本分支保留所有版权声明。以下为原 README 内容。
+
+---
+![烟绯律师](https://file.xunkong.cc/static/repo/xunkong/YanfeiLawyer.webp)
 
 # 寻空
 
